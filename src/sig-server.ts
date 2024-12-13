@@ -100,7 +100,7 @@ express_app.use(function(err: createHttpError.HttpError, req: Request, res: Resp
 });
 
 /**
- *  Function Definitions
+ *  HTTPS Server Function Definitions
  */
 
 function createHttpsServer(key_path: string, cert_path: string, express_app: Application): https.Server {
