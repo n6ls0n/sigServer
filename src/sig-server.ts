@@ -34,7 +34,7 @@ const cert_path = path.join(ssl_folder, 'localhost.crt');
 const io_app = io(); // Create a Socket.IO server
 const express_app = express(); // Create an Express app
 const https_server = createHttpsServer(key_path, cert_path, express_app); // Create a HTTPS server and attach the Express app
-
+const port = 3000;
 /**
  *  Types
  */
@@ -165,8 +165,8 @@ function handleListening() {
 }
 
 
-express_app.set('port', '3030');
+express_app.set('port', port);
 io_app.attach(https_server);
-https_server.listen(3030);
+https_server.listen(port);
 https_server.on('error', handleError);
 https_server.on('listening', handleListening);
