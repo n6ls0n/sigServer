@@ -118,7 +118,18 @@ function createHttpsServer(key_path: string, cert_path: string, express_app: App
   }
 }
 
-function handleError(error) {
+/**
+ * Handle errors from the HTTPS server.
+ *
+ * This function is called when the HTTPS server encounters an error
+ * while listening on a port. If the error is not a listen error, it
+ * is re-thrown. If the error is a listen error, the function prints
+ * an error message (depending on the error code) and exits the
+ * process with a status code of 1.
+ *
+ * @param {NodeJS.ErrnoException} error - the error from the HTTPS server.
+ */
+function handleError(error: NodeJS.ErrnoException) {
   if (error.syscall !== 'listen') {
     throw error;
   }
