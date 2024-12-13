@@ -177,7 +177,7 @@ function handleListening() {
        * both cases.
        */
       if (details.family.toString().endsWith('4')) {
-        interfaces.push(`-> ${config.protocol}://${details.address}:${address.port}/`);
+        interfaces.push(`-> ${config.protocol}://${details.address}:${port}/`);
       }
     });
   });
