@@ -2,6 +2,29 @@
 'use strict';
 
 /**
+ *  Types
+ */
+type Protocol = 'https';
+type ServerConfig = {
+  protocol: Protocol,
+  key: Buffer,
+  cert: Buffer,
+};
+type NetworkInterfaceInfo = {
+  address: string;
+  netmask: string;
+  family: string;
+  mac: string;
+  internal: boolean;
+  cidr: string;
+  scopeid?: number;
+};
+
+type NetworkInterfaces = {
+  [key: string]: NetworkInterfaceInfo[];
+};
+
+/**
  *  Logging
  */
 require('dotenv').config();
@@ -10,7 +33,7 @@ const debug = require('debug')(process.env.DEBUG);
 /**
  *  Imports
  */
-const ifaces = require('os').networkInterfaces();
+const networkInterfaces: NetworkInterfaces = require('os').networkInterfaces(); // Get network interfaces for this machine
 const fs = require('fs');
 const io = require('socket.io')
 const express = require('express');
@@ -36,16 +59,6 @@ const express_app = express(); // Create an Express app
 const https_server = createHttpsServer(key_path, cert_path, express_app); // Create a HTTPS server and attach the Express app
 const port = 3000;
 const public_dir = __dirname; // Set the public directory to serve from
-
-/**
- *  Types
- */
-type Protocol = 'https';
-type ServerConfig = {
-  protocol: Protocol,
-  key: Buffer,
-  cert: Buffer,
-};
 
 /**
  *  Socket.io Setup
@@ -151,11 +164,12 @@ function handleError(error: NodeJS.ErrnoException) {
 }
 
 function handleListening() {
-  const address = server.address();
-  // Inspired by https://github.com/http-party/http-server/blob/master/bin/http-server#L163
-  const interfaces = [];
-  Object.keys(ifaces).forEach(function(dev) {
-    ifaces[dev].forEach(function(details) {
+  const address = https_server.address();
+
+  const interfaces: string[] = [];
+
+  Object.keys(networkInterfaces).forEach(function(dev) {
+    networkInterfaces[dev].forEach(function(details) {
       /**
        * Node v. 18+ returns a number (4, 6) for family;
        * earlier versions returned IPv4 or IPv6. This handles
