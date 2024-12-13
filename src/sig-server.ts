@@ -56,9 +56,14 @@ const cert_path = path.join(ssl_folder, 'localhost.crt');
  */
 const io_app = io(); // Create a Socket.IO server
 const express_app = express(); // Create an Express app
-const https_server = createHttpsServer(key_path, cert_path, express_app); // Create a HTTPS server and attach the Express app
+const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
 const port = 3000;
 const public_dir = __dirname; // Set the public directory to serve from
+const config: ServerConfig = {
+  protocol: 'https',
+  key: fs.readFileSync(key_path),
+  cert: fs.readFileSync(cert_path),
+};
 
 /**
  *  Socket.io Setup
@@ -118,13 +123,8 @@ express_app.use(function(err: createHttpError.HttpError, req: Request, res: Resp
  *  HTTPS Server Function Definitions
  */
 
-function createHttpsServer(key_path: string, cert_path: string, express_app: Application): https.Server {
+function createHttpsServer(express_app: Application): https.Server {
   try {
-    const config: ServerConfig = {
-      protocol: 'https',
-      key: fs.readFileSync(key_path),
-      cert: fs.readFileSync(cert_path),
-    };
     const server = require(config.protocol).createServer({key: config.key, cert: config.cert}, express_app);
     return server;
   } catch(e) {
@@ -167,7 +167,8 @@ function handleListening() {
   const address = https_server.address();
 
   const interfaces: string[] = [];
-
+  // dev holds all the network interfaces on which the server is listening
+  // details holds all the details for each object on that interface
   Object.keys(networkInterfaces).forEach(function(dev) {
     networkInterfaces[dev].forEach(function(details) {
       /**
@@ -176,7 +177,7 @@ function handleListening() {
        * both cases.
        */
       if (details.family.toString().endsWith('4')) {
-        interfaces.push(`-> ${protocol}://${details.address}:${address.port}/`);
+        interfaces.push(`-> ${config.protocol}://${details.address}:${address.port}/`);
       }
     });
   });
