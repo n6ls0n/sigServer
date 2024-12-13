@@ -1,0 +1,12 @@
+html {
+    font-family: "Lucida Grande", Arial, sans-serif;
+    font-size: 1.125em;
+    line-height: 1.222em;
+}
+article {
+    margin: 0 auto;
+    max-width: 33em;
+}
+h1,h2 {
+    line-height: 1.2;
+}
