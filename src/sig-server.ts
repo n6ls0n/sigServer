@@ -35,6 +35,8 @@ const io_app = io(); // Create a Socket.IO server
 const express_app = express(); // Create an Express app
 const https_server = createHttpsServer(key_path, cert_path, express_app); // Create a HTTPS server and attach the Express app
 const port = 3000;
+const public_dir = __dirname; // Set the public directory to serve from
+
 /**
  *  Types
  */
@@ -82,9 +84,9 @@ mp_namespaces.on('connect', function(socket) {
  *  Express Setup
  */
 
-const public_dir = process.cwd(); // Set the public directory to serve from
+
 express_app.use(logger('dev')); // Log activity to the console
-express_app.use(express.static(path.join(__dirname, public_dir))); // Serve static files from the `cwd` directory
+express_app.use(express.static(public_dir)); // Serve static files from the script directory
 
 // Catch 404 errors and forward them to error handler
 express_app.use(function(req: Request, res: Response, next: NextFunction) {
