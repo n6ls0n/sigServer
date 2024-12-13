@@ -8,6 +8,18 @@ require('dotenv').config();
 const debug = require('debug')(process.env.DEBUG);
 
 /**
+ *  Imports
+ */
+const ifaces = require('os').networkInterfaces();
+const fs = require('fs');
+const io = require('socket.io')
+const express = require('express');
+const logger = require('morgan');
+import * as https from 'https';
+import { Request, Response, NextFunction, Application } from 'express';
+import createHttpError from 'http-errors';
+
+/**
  *  SSL Setup
  */
 const path = require('path');
@@ -15,45 +27,96 @@ const ssl_folder = path.join(__dirname, 'ssl_certs');
 const key_path = path.join(ssl_folder, 'localhost.key');
 const cert_path = path.join(ssl_folder, 'localhost.crt');
 
+
 /**
- *  Imports
+ *  Server Initializations
  */
-const ifaces = require('os').networkInterfaces();
-const fs = require('fs');
-const createError = require('http-errors');
-const express = require('express');
-const logger = require('morgan');
-const io = require('socket.io')();
-import * as https from 'https';
+const io_app = io(); // Create a Socket.IO server
+const express_app = express(); // Create an Express app
+const https_server = createHttpsServer(key_path, cert_path, express_app); // Create a HTTPS server and attach the Express app
 
 /**
  *  Types
  */
-type Protocol = 'http' | 'https';
-
+type Protocol = 'https';
 type ServerConfig = {
   protocol: Protocol,
-  server?: https.Server,
   key: Buffer,
   cert: Buffer,
 };
 
-function selectServer(key_path: string, cert_path: string) {
+/**
+ *  Socket.io Setup
+ */
+const mp_namespaces = io.of(/^\/[a-z]{4}-[a-z]{4}-[a-z]{4}$/);
+
+mp_namespaces.on('connect', function(socket) {
+
+  const namespace = socket.nsp;
+
+  const peers = [];
+
+  for (let peer of namespace.sockets.keys()) {
+    peers.push(peer);
+  }
+  console.log(`    Socket namespace: ${namespace.name}`);
+
+  // Send the array of connected-peer IDs to the connecting peer
+  socket.emit('connected peers', peers);
+
+  // Send the connecting peer ID to all connected peers
+  socket.broadcast.emit('connected peer', socket.id);
+
+  socket.on('signal', function({ recipient, sender, signal }) {
+    socket.to(recipient).emit('signal', { recipient, sender, signal });
+  });
+
+  socket.on('disconnect', function() {
+    namespace.emit('disconnected peer', socket.id);
+  });
+
+});
+
+
+/**
+ *  Express Setup
+ */
+
+const public_dir = process.cwd(); // Set the public directory to serve from
+express_app.use(logger('dev')); // Log activity to the console
+express_app.use(express.static(path.join(__dirname, public_dir))); // Serve static files from the `cwd` directory
+
+// Catch 404 errors and forward them to error handler
+express_app.use(function(req: Request, res: Response, next: NextFunction) {
+  next(createHttpError(404));
+});
+
+// Handle errors with the error handler
+express_app.use(function(err: createHttpError.HttpError, req: Request, res: Response, next: NextFunction) {
+  // Set the error code
+  res.status(err.status || 500);
+  // Respond with a static error page (404 or 500)
+  res.sendFile(`error/${err.status}.html`, { root: __dirname });
+});
+
+/**
+ *  Function Definitions
+ */
+
+function createHttpsServer(key_path: string, cert_path: string, express_app: Application): https.Server {
   try {
     const config: ServerConfig = {
       protocol: 'https',
       key: fs.readFileSync(key_path),
       cert: fs.readFileSync(cert_path),
     };
-    config.server = require(config.protocol).createServer({key: config.key, cert: config.cert}, app);
-    return config;
+    const server = require(config.protocol).createServer({key: config.key, cert: config.cert}, express_app);
+    return server;
   } catch(e) {
     console.error(e);
     process.exit(1);
   }
-
 }
-
 
 function handleError(error) {
   if (error.syscall !== 'listen') {
@@ -102,66 +165,8 @@ function handleListening() {
 }
 
 
-
-const {server, protocol} = selectServer(key_path, cert_path);
-
-// Create an Express app
-const app = express();
-
-// Set the public directory to serve from
-const public_dir = process.env.PUBLIC ?? 'www';
-
-
-// Log activity to the console
-app.use(logger('dev'));
-
-// Serve static files from the `www/` directory
-app.use(express.static(path.join(__dirname, public_dir)));
-
-// Catch 404 errors and forward them to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
-});
-// Handle errors with the error handler
-app.use(function(err, req, res, next) {
-  // Set the error code
-  res.status(err.status || 500);
-  // Respond with a static error page (404 or 500)
-  res.sendFile(`error/${err.status}.html`, { root: __dirname });
-});
-
-
-const mp_namespaces = io.of(/^\/[a-z]{4}-[a-z]{4}-[a-z]{4}$/);
-
-mp_namespaces.on('connect', function(socket) {
-
-  const namespace = socket.nsp;
-
-  const peers = [];
-
-  for (let peer of namespace.sockets.keys()) {
-    peers.push(peer);
-  }
-  console.log(`    Socket namespace: ${namespace.name}`);
-
-  // Send the array of connected-peer IDs to the connecting peer
-  socket.emit('connected peers', peers);
-
-  // Send the connecting peer ID to all connected peers
-  socket.broadcast.emit('connected peer', socket.id);
-
-  socket.on('signal', function({ recipient, sender, signal }) {
-    socket.to(recipient).emit('signal', { recipient, sender, signal });
-  });
-
-  socket.on('disconnect', function() {
-    namespace.emit('disconnected peer', socket.id);
-  });
-
-});
-
-app.set('port', '3030');
-io.attach(server);
-server.listen(port);
-server.on('error', handleError);
-server.on('listening', handleListening);
+express_app.set('port', '3030');
+io_app.attach(https_server);
+https_server.listen(3030);
+https_server.on('error', handleError);
+https_server.on('listening', handleListening);
