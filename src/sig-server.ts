@@ -10,21 +10,100 @@ const debug = require('debug')(process.env.DEBUG);
 /**
  *  SSL Setup
  */
+const path = require('path');
 const ssl_folder = path.join(__dirname, 'ssl_certs');
 const key_path = path.join(ssl_folder, 'localhost.key');
 const cert_path = path.join(ssl_folder, 'localhost.crt');
-const {server, protocol} = selectServer(key_path, cert_path);
 
+/**
+ *  Imports
+ */
 const ifaces = require('os').networkInterfaces();
 const fs = require('fs');
-
-
 const createError = require('http-errors');
 const express = require('express');
-const path = require('path');
 const logger = require('morgan');
 const io = require('socket.io')();
+import * as https from 'https';
 
+/**
+ *  Types
+ */
+type Protocol = 'http' | 'https';
+
+type ServerConfig = {
+  protocol: Protocol,
+  server?: https.Server,
+  key: Buffer,
+  cert: Buffer,
+};
+
+function selectServer(key_path: string, cert_path: string) {
+  try {
+    const config: ServerConfig = {
+      protocol: 'https',
+      key: fs.readFileSync(key_path),
+      cert: fs.readFileSync(cert_path),
+    };
+    config.server = require(config.protocol).createServer({key: config.key, cert: config.cert}, app);
+    return config;
+  } catch(e) {
+    console.error(e);
+    process.exit(1);
+  }
+
+}
+
+
+function handleError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  switch (error.code) {
+  case 'EADDRINUSE':
+    console.error(`Port ${port} is already being used`);
+    process.exit(1);
+    break;
+  case 'EACCES':
+    console.error(`Port ${port} requires elevated user privileges (sudo)`);
+    process.exit(1);
+    break;
+  default:
+    throw error;
+  }
+}
+
+function handleListening() {
+  const address = server.address();
+  // Inspired by https://github.com/http-party/http-server/blob/master/bin/http-server#L163
+  const interfaces = [];
+  Object.keys(ifaces).forEach(function(dev) {
+    ifaces[dev].forEach(function(details) {
+      /**
+       * Node v. 18+ returns a number (4, 6) for family;
+       * earlier versions returned IPv4 or IPv6. This handles
+       * both cases.
+       */
+      if (details.family.toString().endsWith('4')) {
+        interfaces.push(`-> ${protocol}://${details.address}:${address.port}/`);
+      }
+    });
+  });
+  debug(
+    `  ** Serving from the ${public_dir}/ directory. **
+
+  App available in your browser at:
+
+    ${interfaces.join('\n    ')}
+
+  Hold CTRL + C to stop the server.\n\n `
+  );
+}
+
+
+
+const {server, protocol} = selectServer(key_path, cert_path);
 
 // Create an Express app
 const app = express();
@@ -82,94 +161,7 @@ mp_namespaces.on('connect', function(socket) {
 });
 
 app.set('port', '3030');
-
-/**
- *  Attach socket.io to the web server.
- */
 io.attach(server);
-
-/**
- *  Listen on provided port, on all network interfaces.
- */
-
 server.listen(port);
 server.on('error', handleError);
 server.on('listening', handleListening);
-
-/**
- *  Look for keys and set the server accordingly.
- */
-
-function selectServer(k, c) {
-  const config = {};
-  if (k && c) {
-    try {
-      const key = fs.readFileSync(k);
-      const cert = fs.readFileSync(c);
-      config.protocol = 'https';
-      config.server = require(config.protocol).createServer({key: key, cert: cert }, app);
-    } catch(e) {
-      console.error(e);
-      process.exit(1);
-    }
-  } else {
-    debug(' WARNING: Your server is using \'http\', not \'https\'.\n Some things might not work as expected.\n');
-    config.protocol = 'http';
-    config.server = require(config.protocol).createServer(app);
-  }
-  return config;
-}
-
-/**
- *  Event listener for HTTP server "error" event.
- */
-
-function handleError(error) {
-  if (error.syscall !== 'listen') {
-    throw error;
-  }
-
-  switch (error.code) {
-  case 'EADDRINUSE':
-    console.error(`Port ${port} is already being used`);
-    process.exit(1);
-    break;
-  case 'EACCES':
-    console.error(`Port ${port} requires elevated user privileges (sudo)`);
-    process.exit(1);
-    break;
-  default:
-    throw error;
-  }
-}
-
-/**
- *  Callback for server listen event
- */
-
-function handleListening() {
-  const address = server.address();
-  // Inspired by https://github.com/http-party/http-server/blob/master/bin/http-server#L163
-  const interfaces = [];
-  Object.keys(ifaces).forEach(function(dev) {
-    ifaces[dev].forEach(function(details) {
-      /**
-       * Node v. 18+ returns a number (4, 6) for family;
-       * earlier versions returned IPv4 or IPv6. This handles
-       * both cases.
-       */
-      if (details.family.toString().endsWith('4')) {
-        interfaces.push(`-> ${protocol}://${details.address}:${address.port}/`);
-      }
-    });
-  });
-  debug(
-    `  ** Serving from the ${public_dir}/ directory. **
-
-  App available in your browser at:
-
-    ${interfaces.join('\n    ')}
-
-  Hold CTRL + C to stop the server.\n\n `
-  );
-}
