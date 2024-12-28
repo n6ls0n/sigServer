@@ -15,8 +15,10 @@ type SignalEvent = {
 };
 
 // ############### Logging ###############
-require('dotenv').config();
-const debug = require('debug')(process.env.DEBUG);
+import dotenv from 'dotenv';
+dotenv.config();
+import debug from 'debug';
+debug.enable(process.env.DEBUG || "");
 
 // ############### Imports ###############
 import { networkInterfaces, NetworkInterfaceInfo } from 'os';
