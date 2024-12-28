@@ -4,13 +4,9 @@ interface GenerateRandomAlphaStringOptions {
   separator: string;
   groups: number[];
 }
-interface PrepareNamespaceOptions {
-  hash: string;
-  set_location: boolean;
-}
 
 function generateRandomAlphaString(separator: string, ...groups: number[]): string {
-  const alphabet = 'bcdfghjklmnpqrstvwxyz1234567890';
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
   let ns: string[] = [];
   for (let group of groups) {
     let str = '';
@@ -22,26 +18,39 @@ function generateRandomAlphaString(separator: string, ...groups: number[]): stri
   return ns.join(separator);
 }
 
-function prepareNamespace({ hash, set_location }: PrepareNamespaceOptions): string {
+function prepareNamespace( hash: string, set_location: boolean ): string {
   let ns = hash.replace(/^#/, ''); // remove # from the hash
   if (/^[a-z]{4}-[a-z]{4}-[a-z]{4}$/.test(ns)) {
     console.log(`Checked existing namespace '${ns}'`);
-    return ns;
+    if (set_location) window.location.hash = ns;
+  } else {
+    ns = generateRandomAlphaString('-', 4, 4, 4);
+    console.log(`Created new namespace '${ns}'`);
+    if (set_location) window.location.hash = ns;
   }
-  ns = generateRandomAlphaString('-', 4, 4, 4);
-  console.log(`Created new namespace '${ns}'`);
-  if (set_location) window.location.hash = ns;
   return ns;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const namespace = prepareNamespace({hash:window.location.hash, set_location: true});
+const namespace = prepareNamespace(window.location.hash, true);
 
-    const socket = io(`https://localhost:3000/${namespace}`, { autoConnect: false });
+document.addEventListener('DOMContentLoaded', () => {
+    const socket = io(`https://localhost:3000/${namespace}`, { autoConnect: true});
 
     console.log('Socket.IO client initialized');
 
     socket.on('connect', () => {
       console.log('Connected to server');
+    });
+
+    socket.on('connected peers', (peers: string[]) => {
+      console.log(`Connected peers: ${peers.join(', ')}`);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Disconnected:', reason);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
     });
   });
