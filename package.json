@@ -1,12 +1,12 @@
 {
-  "name": "sockets-server",
+  "name": "sig-server",
   "version": "0.1",
   "private": true,
   "description": "",
   "author": "Chukwuemeka Nelson Nwauche <cnwauche@gmail.com>",
   "scripts": {
     "build": "npm run build:client && npm run build:server",
-    "start": "node dist/server/server.js",
+    "start": "node dist/server/sig-server.js",
     "build:client": "webpack --mode production",
     "build:server": "tsc",
     "build:client:dev": "webpack --mode development",
