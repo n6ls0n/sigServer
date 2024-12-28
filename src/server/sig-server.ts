@@ -154,20 +154,27 @@ https_server.on('listening', handleListening); // Used to handle successful serv
 
 // ############### Socket Server Setup ###############
 
-const socket_server: Server = new Server(https_server);
+const socket_server: Server = new Server(https_server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const mp_namespaces = socket_server.of(/^\/[a-z]{4}-[a-z]{4}-[a-z]{4}$/);
 
 mp_namespaces.on('connect', function(socket: Socket) {
 
-  const namespace: Namespace = mp_namespaces;
+  const namespace = socket.nsp;
+
+  console.log(`    Socket namespace: ${namespace.name}`);
+  console.log(`    Socket connected: ${socket.id}`);
 
   const peers: string[] = [];
 
   for (let peer of namespace.sockets.keys()) {
     peers.push(peer);
   }
-  console.log(`    Socket namespace: ${namespace.name}`);
 
   // Send the array of connected-peer IDs to the connecting peer
   socket.emit('connected peers', peers);
@@ -182,7 +189,6 @@ mp_namespaces.on('connect', function(socket: Socket) {
   socket.on('disconnect', function() {
     namespace.emit('disconnected peer', socket.id);
   });
-
 });
 
 
