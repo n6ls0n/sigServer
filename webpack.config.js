@@ -1,9 +1,10 @@
 const fs = require('fs')
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-    entry: './src/index.tsx', // Update the entry point to src/index.ts
+    entry: './src/client/index.ts',
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'bundle.js',
@@ -11,12 +12,12 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /\.(ts|tsx)$/, // Add a rule to handle TypeScript files
+                test: /\.(ts|tsx)$/,
                 use: 'ts-loader',
                 exclude: /node_modules/,
             },
             {
-                test: /\.html$/, // Add a rule to handle HTML files
+                test: /\.html$/,
                 use: 'html-loader',
             },
             {
@@ -28,18 +29,28 @@ module.exports = {
         noParse: [/jest\.config\.js/],
     },
     resolve: {
-        extensions: ['.ts', '.js', '.tsx'], // Add TypeScript file extension to resolve
+        extensions: ['.ts', '.js', '.tsx'],
+        alias: {
+            'socket.io-client': 'socket.io-client/dist/socket.io.js',
+        },
     },
     plugins: [
         new HtmlWebpackPlugin({
-            template: './src/index.html', // Update the template path to src/index.html
+            template: './src/client/index.html',
+            inject: 'body',
+        }),
+        new CopyWebpackPlugin({
+            patterns: [
+                {
+                    from: 'src/server/ssl_certs',
+                    to: 'ssl_certs'
+                },
+                {
+                    from: '.env',
+                    to: '.'
+                },
+            ],
         }),
     ],
-    devServer: {
-        hot: false,
-        liveReload: true,
-        watchFiles: ['src/**/*'],
-        host: 'localhost',
-        port: 3030,
-    },
+    devtool: 'source-map',
 };
