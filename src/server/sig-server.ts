@@ -41,6 +41,7 @@ const logger = require('morgan');
 import * as https from 'https';
 import { Request, Response, NextFunction, Application } from 'express';
 import createHttpError from 'http-errors';
+import { Socket } from 'dgram';
 
 /**
  *  SSL Setup
@@ -54,7 +55,7 @@ const cert_path = path.join(ssl_folder, 'localhost.crt');
 /**
  *  Server Initializations
  */
-const io_app = io(); // Create a Socket.IO server
+const io_app = io();
 const express_app = express(); // Create an Express app
 const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
 const port = 3000;
@@ -68,11 +69,11 @@ const config: ServerConfig = {
 /**
  *  Socket.io Setup
  */
-const mp_namespaces = io.of(/^\/[a-z]{4}-[a-z]{4}-[a-z]{4}$/);
+const mp_namespaces = io_app.of(/^\/[a-z]{4}-[a-z]{4}-[a-z]{4}$/);
 
-mp_namespaces.on('connect', function(socket) {
+mp_namespaces.on('connect', function(socket: Socket) {
 
-  const namespace = socket.nsp;
+  const namespace = mp_namespaces;
 
   const peers = [];
 
