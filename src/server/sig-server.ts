@@ -26,6 +26,8 @@ import { createServer as createHTTPServer } from 'http';
 import { fileURLToPath } from 'url';
 import path, { dirname, join} from 'path';
 import { Server, Socket, Namespace } from 'socket.io';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // ############### SSL Setup ###############
 const __filename = fileURLToPath(import.meta.url);
@@ -39,7 +41,7 @@ const cert_path = join(ssl_folder, 'localhost.crt');
 const port = 3000;
 const express_app = express(); // Create an Express app
 express_app.set('port', port);
-const https_config: ServerConfig = {
+const config: ServerConfig = {
   key: fs.readFileSync(key_path),
   cert: fs.readFileSync(cert_path),
 };
@@ -63,7 +65,7 @@ express_app.use(function(req: Request, res: Response, next: NextFunction) {
 // ############### HTTPS Server Function Definitions ###############
 function createHttpsServer(express_app: Application): https.Server {
   try {
-    const server = createServer({ key: https_config.key, cert: https_config.cert }, express_app);
+    const server = createServer({ key: config.key, cert: config.cert }, express_app);
     return server;
   } catch (e) {
     console.error(e);
@@ -79,23 +81,6 @@ function createHttpServer(express_app: Application): http.Server {
     console.error(e);
     process.exit(1);
   }
-}
-
-function createFinalServer(): https.Server | http.Server | undefined {
-  if(process.env.ENV === 'dev'){
-    const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
-    https_server.listen(port);
-    https_server.on('error', handleError); // Used to handle errors during server start
-    https_server.on('listening', handleListening); // Used to handle successful server start
-    return https_server;
-  } else if(process.env.ENV === 'prod'){
-    const http_server = createHttpServer(express_app);
-    http_server.listen(port);
-    http_server.on('error', handleError);
-    http_server.on('listening', handleListening);
-    return http_server;
-  }
-  return undefined;
 }
 
 function handleError(error: NodeJS.ErrnoException) {
@@ -121,7 +106,37 @@ function handleListening() {
   console.log(`Server listening on port ${port}`);
 }
 
+function createFinalServer(): https.Server | http.Server | undefined {
+  if(process.env.ENV === "dev"){
+    const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
+    https_server.listen(port);
+    https_server.on('error', handleError); // Used to handle errors during server start
+    https_server.on('listening', handleListening); // Used to handle successful server start
+    return https_server;
+  } else if(process.env.ENV === "prod"){
+    const http_server = createHttpServer(express_app);
+    http_server.listen(port);
+    http_server.on('error', handleError);
+    http_server.on('listening', handleListening);
+    return http_server;
+  }
+}
+
 const finalServer = createFinalServer();
+
+if (!finalServer) {
+  console.error('Failed to create server');
+  process.exit(1);
+}
+
+// Keep the process alive
+process.on('SIGINT', () => {
+  console.log('Received SIGINT. Closing server...');
+  finalServer.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
+});
 
 // ############### Socket Server Setup ###############
 const socket_server: Server = new Server(finalServer, {
