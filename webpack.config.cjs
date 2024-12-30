@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
     entry: './src/client/index.ts',
@@ -35,6 +36,7 @@ module.exports = {
         },
     },
     plugins: [
+        new Dotenv(),
         new HtmlWebpackPlugin({
             template: './src/client/index.html',
             inject: 'body',
@@ -45,12 +47,9 @@ module.exports = {
                     from: 'src/server/ssl_certs',
                     to: 'ssl_certs'
                 },
-                {
-                    from: '.env',
-                    to: '.'
-                },
             ],
         }),
     ],
     devtool: 'source-map',
 };
+
