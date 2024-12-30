@@ -1,10 +1,5 @@
 import { io } from 'socket.io-client';
 
-interface GenerateRandomAlphaStringOptions {
-  separator: string;
-  groups: number[];
-}
-
 function generateRandomAlphaString(separator: string, ...groups: number[]): string {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz';
   let ns: string[] = [];
