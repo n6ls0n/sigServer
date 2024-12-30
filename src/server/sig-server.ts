@@ -14,12 +14,6 @@ type SignalEvent = {
   signal: any;
 };
 
-// ############### Logging ###############
-import dotenv from 'dotenv';
-dotenv.config();
-import debug from 'debug';
-debug.enable(process.env.DEBUG || "");
-
 // ############### Imports ###############
 import { networkInterfaces, NetworkInterfaceInfo } from 'os';
 import * as fs from 'fs';
@@ -27,6 +21,8 @@ import express, { Request, Response, NextFunction, Application } from 'express';
 import logger from 'morgan';
 import * as https from 'https';
 import { createServer } from 'https';
+import * as http from 'http';
+import { createServer as createHTTPServer } from 'http';
 import { fileURLToPath } from 'url';
 import path, { dirname, join} from 'path';
 import { Server, Socket, Namespace } from 'socket.io';
@@ -43,13 +39,13 @@ const cert_path = join(ssl_folder, 'localhost.crt');
 const port = 3000;
 const express_app = express(); // Create an Express app
 express_app.set('port', port);
-const config: ServerConfig = {
+const https_config: ServerConfig = {
   key: fs.readFileSync(key_path),
   cert: fs.readFileSync(cert_path),
 };
 
 // ############### Express Setup ###############
-express_app.use(logger('dev'));
+// express_app.use(logger('dev'));
 
 // Serve static files from the 'public' directory
 express_app.use(express.static(join(__dirname, '..')));
@@ -67,7 +63,7 @@ express_app.use(function(req: Request, res: Response, next: NextFunction) {
 // ############### HTTPS Server Function Definitions ###############
 function createHttpsServer(express_app: Application): https.Server {
   try {
-    const server = createServer({ key: config.key, cert: config.cert }, express_app);
+    const server = createServer({ key: https_config.key, cert: https_config.cert }, express_app);
     return server;
   } catch (e) {
     console.error(e);
@@ -75,6 +71,32 @@ function createHttpsServer(express_app: Application): https.Server {
   }
 }
 
+function createHttpServer(express_app: Application): http.Server {
+  try {
+    const server = createHTTPServer(express_app);
+    return server;
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+function createFinalServer(): https.Server | http.Server | undefined {
+  if(process.env.ENV === 'dev'){
+    const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
+    https_server.listen(port);
+    https_server.on('error', handleError); // Used to handle errors during server start
+    https_server.on('listening', handleListening); // Used to handle successful server start
+    return https_server;
+  } else if(process.env.ENV === 'prod'){
+    const http_server = createHttpServer(express_app);
+    http_server.listen(port);
+    http_server.on('error', handleError);
+    http_server.on('listening', handleListening);
+    return http_server;
+  }
+  return undefined;
+}
 
 function handleError(error: NodeJS.ErrnoException) {
   if (error.syscall !== 'listen') {
@@ -96,65 +118,13 @@ function handleError(error: NodeJS.ErrnoException) {
 }
 
 function handleListening() {
-  const network_interfaces: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces();
-  const interfaces: string[] = [];
-  // dev holds all the network interfaces on which the server is listening
-  // details holds all the details for each object on that interface
-  Object.keys(network_interfaces).forEach(function(dev) {
-    if (network_interfaces[dev]) {
-      network_interfaces[dev].forEach(function(details) {
-        /**
-         * Node v. 18+ returns a number (4, 6) for family;
-         * earlier versions returned IPv4 or IPv6. This handles
-         * both cases.
-         */
-        if (details.family.toString().endsWith('4')) {
-          interfaces.push(`-> https://${details.address}:${port}/`);
-          console.log(interfaces.join('\n'));
-        }
-      });
-    }
-  });
+  console.log(`Server listening on port ${port}`);
 }
 
-const https_server = createHttpsServer(express_app); // Create a HTTPS server and attach the Express app
-https_server.listen(port);
-https_server.on('error', handleError); // Used to handle errors during server start
-https_server.on('listening', handleListening); // Used to handle successful server start
-
-
-// function handleListening() {
-//   const address = https_server.address();
-
-//   const interfaces: string[] = [];
-//   // dev holds all the network interfaces on which the server is listening
-//   // details holds all the details for each object on that interface
-//   Object.keys(networkInterfaces).forEach(function(dev) {
-//     networkInterfaces[dev].forEach(function(details) {
-//       /**
-//        * Node v. 18+ returns a number (4, 6) for family;
-//        * earlier versions returned IPv4 or IPv6. This handles
-//        * both cases.
-//        */
-//       if (details.family.toString().endsWith('4')) {
-//         interfaces.push(`-> ${config.protocol}://${details.address}:${port}/`);
-//       }
-//     });
-//   });
-//   debug(
-//     `  ** Serving from the ${public_dir}/ directory. **
-
-//   App available in your browser at:
-
-//     ${interfaces.join('\n    ')}
-
-//   Hold CTRL + C to stop the server.\n\n `
-//   );
-// }
+const finalServer = createFinalServer();
 
 // ############### Socket Server Setup ###############
-
-const socket_server: Server = new Server(https_server, {
+const socket_server: Server = new Server(finalServer, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
