@@ -167,10 +167,17 @@ mp_namespaces.on('connect', function(socket: Socket) {
   // Send the connecting peer ID to all connected peers
   socket.broadcast.emit('connected peer', socket.id);
 
+  // The 'signal' event is used to send WebRTC signaling messages between peers.
+  // When a peer sends a 'signal' event, it is broadcasted to all connected peers
+  // except the sending peer. This allows peers to communicate WebRTC signaling
+  // messages with each other.
   socket.on('signal', function({ recipient, sender, signal }: SignalEvent) {
     socket.to(recipient).emit('signal', { recipient, sender, signal });
   });
 
+  // When a peer disconnects, this event is emitted. The 'disconnected peer'
+  // event is broadcasted to all connected peers, so that they can remove the
+  // disconnected peer from their list of connected peers.
   socket.on('disconnect', function() {
     namespace.emit('disconnected peer', socket.id);
   });
